@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Poetry (o poetry.lock deve continuar versionado)
+dist/
+build/
+
+# Testes e cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Variáveis de ambiente
+.env
+.env.local
+
+# Editores/IDEs
+.vscode/
+.idea/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
