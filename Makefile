@@ -1,5 +1,10 @@
 POETRY := poetry
+COMPOSE := docker compose
 BACKEND_DIR := backend
+BACKEND_SERVICE := backend
+DB_SERVICE := db
+DB_USER := postgres
+DB_NAME := c216
 APP := main
 HOST := 0.0.0.0
 PORT := 8000
@@ -10,15 +15,24 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install run test clean
+.PHONY: help install run test lock clean build up down restart logs ps shell db-shell
 
 help:
 	@echo "Comandos disponiveis:"
-	@echo "  make install  - instala as dependencias do projeto"
-	@echo "  make run      - roda a aplicacao com uvicorn"
-	@echo "  make test     - executa os testes com pytest"
-	@echo "  make clean    - remove caches e arquivos temporarios"
-	@echo "  make help     - mostra esta mensagem"
+	@echo "  make install   - instala as dependencias do projeto"
+	@echo "  make run       - roda a aplicacao com uvicorn"
+	@echo "  make test      - executa os testes com pytest"
+	@echo "  make lock      - atualiza o poetry.lock"
+	@echo "  make clean     - remove caches e arquivos temporarios"
+	@echo "  make build     - constroi as imagens docker"
+	@echo "  make up        - sobe os containers em segundo plano"
+	@echo "  make down      - para e remove os containers"
+	@echo "  make restart   - reinicia os containers"
+	@echo "  make logs      - acompanha os logs do backend"
+	@echo "  make ps        - lista os containers do projeto"
+	@echo "  make shell     - abre um shell no container do backend"
+	@echo "  make db-shell  - abre o psql no container do banco"
+	@echo "  make help      - mostra esta mensagem"
 
 install:
 	cd $(BACKEND_DIR) && $(POETRY) install
@@ -29,6 +43,33 @@ run:
 test:
 	cd $(BACKEND_DIR) && $(POETRY) run pytest
 
+lock:
+	cd $(BACKEND_DIR) && $(POETRY) lock
+
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
+
+build:
+	$(COMPOSE) build
+
+up:
+	$(COMPOSE) up -d
+
+down:
+	$(COMPOSE) down
+
+restart:
+	$(COMPOSE) restart
+
+logs:
+	$(COMPOSE) logs -f $(BACKEND_SERVICE)
+
+ps:
+	$(COMPOSE) ps
+
+shell:
+	$(COMPOSE) exec $(BACKEND_SERVICE) sh
+
+db-shell:
+	$(COMPOSE) exec $(DB_SERVICE) psql -U $(DB_USER) -d $(DB_NAME)
