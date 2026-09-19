@@ -1,0 +1,37 @@
+name: CI Backend
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Testes do backend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Faz o checkout do repositorio
+        uses: actions/checkout@v4
+
+      - name: Instala o Poetry
+        run: pipx install poetry==2.4.1
+
+      - name: Configura o Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: poetry
+          cache-dependency-path: backend/poetry.lock
+
+      - name: Verifica o pyproject.toml
+        run: poetry check
+
+      - name: Instala as dependencias
+        run: poetry install --no-root
+
+      - name: Executa os testes
+        run: poetry run pytest -v
