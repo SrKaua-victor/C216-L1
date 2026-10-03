@@ -15,13 +15,15 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install run test lock clean build up down restart logs ps shell db-shell
+.PHONY: help install run test test-v test-k lock clean build up down restart logs ps shell db-shell
 
 help:
 	@echo "Comandos disponiveis:"
 	@echo "  make install   - instala as dependencias do projeto"
 	@echo "  make run       - roda a aplicacao com uvicorn"
 	@echo "  make test      - executa os testes com pytest"
+	@echo "  make test-v    - executa os testes em modo verboso"
+	@echo "  make test-k    - executa os testes que casam com K (ex: make test-k K=404)"
 	@echo "  make lock      - atualiza o poetry.lock"
 	@echo "  make clean     - remove caches e arquivos temporarios"
 	@echo "  make build     - constroi as imagens docker"
@@ -42,6 +44,12 @@ run:
 
 test:
 	cd $(BACKEND_DIR) && $(POETRY) run pytest
+
+test-v:
+	cd $(BACKEND_DIR) && $(POETRY) run pytest -v
+
+test-k:
+	cd $(BACKEND_DIR) && $(POETRY) run pytest -k "$(K)" -v
 
 lock:
 	cd $(BACKEND_DIR) && $(POETRY) lock
