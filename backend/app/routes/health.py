@@ -1,13 +1,13 @@
-from fastapi import FastAPI
+from fastapi import APIRouter
 
-app = FastAPI(title="C216 L1 - Backend")
+router = APIRouter(tags=["health"])
 
 
-@app.get("/")
+@router.get("/")
 def raiz():
     return {"mensagem": "Backend C216 L1 no ar"}
 
 
-@app.get("/health")
+@router.get("/health")
 def health():
     return {"status": "ok"}
