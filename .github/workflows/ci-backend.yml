@@ -9,6 +9,25 @@ jobs:
     name: Testes do backend
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: c216_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d c216_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/c216_test
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/c216_test
+
     defaults:
       run:
         working-directory: backend
@@ -34,9 +53,55 @@ jobs:
         id: install
         run: poetry install --no-root
 
+      - name: Aplica as migrations no PostgreSQL
+        run: poetry run alembic upgrade head
+
+      - name: Verifica se as migrations correspondem aos modelos
+        run: poetry run alembic check
+
       - name: Executa os testes unitarios
         run: poetry run pytest -m unit -v
 
       - name: Executa os testes de integracao
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: poetry run pytest -m integration -v
+
+      - name: Executa o lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          poetry run ruff check .
+          poetry run ruff format --check .
+
+  compose:
+    name: Aplicacao com PostgreSQL via Docker Compose
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Faz o checkout do repositorio
+        uses: actions/checkout@v4
+
+      - name: Sobe o backend e o banco
+        run: docker compose up -d --build --wait
+
+      - name: Cria e consulta um usuario no PostgreSQL
+        run: |
+          curl -fsS http://localhost:8000/health
+          USER_ID=$(curl -fsS -X POST http://localhost:8000/users \
+            -H "Content-Type: application/json" \
+            -d '{"nome": "Ana", "email": "ana@email.com"}' | jq -r .id)
+          curl -fsS "http://localhost:8000/users/$USER_ID"
+          echo "USER_ID=$USER_ID" >> "$GITHUB_ENV"
+
+      - name: Verifica a persistencia apos reiniciar o backend
+        run: |
+          docker compose restart backend
+          curl -fsS --retry 15 --retry-delay 2 --retry-all-errors "http://localhost:8000/users/$USER_ID" \
+            | jq -e '.email == "ana@email.com"'
+
+      - name: Mostra os logs em caso de falha
+        if: failure()
+        run: docker compose logs
+
+      - name: Derruba os containers
+        if: always()
+        run: docker compose down -v
