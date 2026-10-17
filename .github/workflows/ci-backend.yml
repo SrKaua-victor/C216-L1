@@ -31,7 +31,12 @@ jobs:
         run: poetry check
 
       - name: Instala as dependencias
+        id: install
         run: poetry install --no-root
 
-      - name: Executa os testes
-        run: poetry run pytest -v
+      - name: Executa os testes unitarios
+        run: poetry run pytest -m unit -v
+
+      - name: Executa os testes de integracao
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: poetry run pytest -m integration -v

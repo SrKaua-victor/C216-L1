@@ -25,3 +25,8 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+addopts = "--strict-markers"
+markers = [
+    "unit: testes unitarios, executam service e schemas diretamente, sem HTTP",
+    "integration: testes de integracao, executam os endpoints via TestClient",
+]
