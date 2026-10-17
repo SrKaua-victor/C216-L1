@@ -1,14 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from sqlalchemy.orm import Session
 
+from app.db.session import get_db
+from app.repositories.user import UserRepository
 from app.schemas.user import UserCreate, UserPatch, UserResponse, UserUpdate
 from app.services.user import (
     EmailAlreadyRegisteredError,
     UserNotFoundError,
     UserService,
-    user_service,
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
+
 
 def user_not_found() -> HTTPException:
     return HTTPException(
@@ -24,8 +27,8 @@ def email_already_registered() -> HTTPException:
     )
 
 
-def get_user_service() -> UserService:
-    return user_service
+def get_user_service(db: Session = Depends(get_db)) -> UserService:
+    return UserService(UserRepository(db))
 
 
 @router.get("", response_model=list[UserResponse])

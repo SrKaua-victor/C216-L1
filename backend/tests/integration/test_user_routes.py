@@ -5,50 +5,52 @@ USUARIO_BIA = {"nome": "Bia", "email": "bia@email.com"}
 
 
 @pytest.fixture
-def ana(client, user_service):
+def ana(client):
     return client.post("/users", json=USUARIO_ANA).json()
 
 
-def test_lista_usuarios_comeca_vazia(client, user_service):
+def test_lista_usuarios_comeca_vazia(client):
     resposta = client.get("/users")
     assert resposta.status_code == 200
     assert resposta.json() == []
 
 
-def test_cria_usuario_retorna_201(client, user_service):
+def test_cria_usuario_retorna_201(client):
     resposta = client.post("/users", json=USUARIO_ANA)
     assert resposta.status_code == 201
-    assert resposta.json() == {"id": 1, **USUARIO_ANA}
+    corpo = resposta.json()
+    assert isinstance(corpo.pop("id"), int)
+    assert corpo == USUARIO_ANA
 
 
-def test_busca_usuario_criado(client, user_service):
+def test_busca_usuario_criado(client):
     criado = client.post("/users", json=USUARIO_ANA).json()
     resposta = client.get(f"/users/{criado['id']}")
     assert resposta.status_code == 200
     assert resposta.json() == criado
 
 
-def test_busca_usuario_inexistente_retorna_404(client, user_service):
+def test_busca_usuario_inexistente_retorna_404(client):
     resposta = client.get("/users/999")
     assert resposta.status_code == 404
     assert resposta.json()["detail"] == "Usuario nao encontrado"
 
 
-def test_email_duplicado_retorna_409(client, user_service):
+def test_email_duplicado_retorna_409(client):
     client.post("/users", json=USUARIO_ANA)
     resposta = client.post("/users", json=USUARIO_ANA)
     assert resposta.status_code == 409
     assert resposta.json()["detail"] == "Email ja cadastrado"
 
 
-def test_remove_usuario(client, user_service):
+def test_remove_usuario(client):
     criado = client.post("/users", json=USUARIO_ANA).json()
     resposta = client.delete(f"/users/{criado['id']}")
     assert resposta.status_code == 204
     assert client.get(f"/users/{criado['id']}").status_code == 404
 
 
-def test_remove_usuario_inexistente_retorna_404(client, user_service):
+def test_remove_usuario_inexistente_retorna_404(client):
     resposta = client.delete("/users/999")
     assert resposta.status_code == 404
 
@@ -63,7 +65,7 @@ def test_remove_usuario_inexistente_retorna_404(client, user_service):
         {"email": "ana@email.com"},
     ],
 )
-def test_payload_invalido_retorna_422(client, user_service, payload):
+def test_payload_invalido_retorna_422(client, payload):
     resposta = client.post("/users", json=payload)
     assert resposta.status_code == 422
 
@@ -86,13 +88,13 @@ def test_limita_quantidade_de_usuarios(client, ana):
     "params",
     [{"limit": 0}, {"limit": 101}, {"limit": "abc"}, {"nome": ""}],
 )
-def test_query_invalida_retorna_422(client, user_service, params):
+def test_query_invalida_retorna_422(client, params):
     resposta = client.get("/users", params=params)
     assert resposta.status_code == 422
 
 
 @pytest.mark.parametrize("user_id", ["0", "-1", "abc"])
-def test_path_invalido_retorna_422(client, user_service, user_id):
+def test_path_invalido_retorna_422(client, user_id):
     resposta = client.get(f"/users/{user_id}")
     assert resposta.status_code == 422
 
@@ -114,7 +116,7 @@ def test_put_sem_todos_os_campos_retorna_422(client, ana):
     assert resposta.status_code == 422
 
 
-def test_put_usuario_inexistente_retorna_404(client, user_service):
+def test_put_usuario_inexistente_retorna_404(client):
     resposta = client.put("/users/999", json=USUARIO_ANA)
     assert resposta.status_code == 404
 
@@ -142,7 +144,7 @@ def test_patch_email_invalido_retorna_422(client, ana):
     assert resposta.status_code == 422
 
 
-def test_patch_usuario_inexistente_retorna_404(client, user_service):
+def test_patch_usuario_inexistente_retorna_404(client):
     resposta = client.patch("/users/999", json={"nome": "Ninguem"})
     assert resposta.status_code == 404
 

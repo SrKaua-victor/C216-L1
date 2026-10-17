@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.schemas.user import UserCreate, UserPatch, UserUpdate
 from app.services.user import (
@@ -9,11 +10,6 @@ from app.services.user import (
 
 ANA = UserCreate(nome="Ana", email="ana@email.com")
 BIA = UserCreate(nome="Bia", email="bia@email.com")
-
-
-@pytest.fixture
-def service():
-    return UserService()
 
 
 @pytest.fixture
@@ -35,9 +31,24 @@ def test_rejeita_email_duplicado(service):
         service.create_user(ANA)
 
 
+def test_conflito_detectado_pelo_banco_vira_email_duplicado(repository):
+    def save_com_conflito(user):
+        raise IntegrityError("INSERT INTO users", {}, Exception("unique violation"))
+
+    repository.save = save_com_conflito
+    with pytest.raises(EmailAlreadyRegisteredError):
+        UserService(repository).create_user(ANA)
+
+
 def test_busca_inexistente_levanta_erro(service):
     with pytest.raises(UserNotFoundError):
         service.get_user(1)
+
+
+def test_remove_usuario_do_repositorio(service, repository):
+    criado = service.create_user(ANA)
+    service.delete_user(criado.id)
+    assert repository.get(criado.id) is None
 
 
 def test_remove_inexistente_levanta_erro(service):
@@ -63,8 +74,14 @@ def test_lista_respeita_o_limite(service_com_usuarios):
 
 def test_update_substitui_todos_os_campos(service):
     criado = service.create_user(ANA)
-    atualizado = service.update_user(criado.id, UserUpdate(nome="Ana Maria", email="anamaria@email.com"))
-    assert atualizado.model_dump() == {"id": criado.id, "nome": "Ana Maria", "email": "anamaria@email.com"}
+    atualizado = service.update_user(
+        criado.id, UserUpdate(nome="Ana Maria", email="anamaria@email.com")
+    )
+    assert (atualizado.id, atualizado.nome, atualizado.email) == (
+        criado.id,
+        "Ana Maria",
+        "anamaria@email.com",
+    )
 
 
 def test_update_permite_manter_o_proprio_email(service):
