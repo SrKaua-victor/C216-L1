@@ -123,12 +123,85 @@ poetry run pytest -m integration
 
 ### Integração contínua
 
-O workflow [`.github/workflows/ci-backend.yml`](.github/workflows/ci-backend.yml) é executado no GitHub Actions a cada `push` e a cada `pull_request`, com dois jobs:
+O workflow [`.github/workflows/ci-backend.yml`](.github/workflows/ci-backend.yml) é executado no GitHub Actions a cada `push` e a cada `pull_request`, com três jobs que rodam em paralelo:
 
-- **Testes do backend** — sobe um PostgreSQL 16, aplica as migrations, verifica se elas correspondem aos modelos ORM e executa os testes unitários e os de integração em passos separados e, por fim, o lint. Os testes de integração rodam contra esse PostgreSQL. Os passos de integração e de lint rodam mesmo se um passo anterior falhar, para que todos os resultados fiquem visíveis.
+- **Lint do backend** — verifica lint e formatação com o Ruff.
+- **Testes do backend** — sobe um PostgreSQL 16, aplica as migrations, verifica se elas correspondem aos modelos ORM e executa os testes unitários e os de integração em passos separados. Os testes de integração rodam contra esse PostgreSQL. O passo de integração roda mesmo se o unitário falhar, para que os dois resultados fiquem visíveis.
 - **Aplicação com PostgreSQL via Docker Compose** — sobe o projeto com `docker compose`, cria um usuário pela API, reinicia o backend e confirma que o dado continua no banco.
 
 O resultado aparece na aba **Actions** do repositório e como check nos Pull Requests.
+
+## Frontend
+
+Aplicação em **React** criada com **Vite** e estilizada com **Tailwind CSS**. Permite cadastrar itens com nome e descrição, ver a lista dos itens cadastrados e remover itens. Nesta etapa os itens ficam no estado do componente `App`, sem comunicação com o backend.
+
+Recursos da interface:
+
+- layout responsivo, com formulário e lista lado a lado no desktop e empilhados no celular;
+- validação com mensagem junto ao campo, que some assim que o campo é corrigido;
+- contador de caracteres em cada campo, que destaca quando o limite é ultrapassado;
+- aviso temporário a cada item adicionado ou removido;
+- acessibilidade: erros e avisos anunciados por leitores de tela, foco levado ao campo com erro e de volta ao formulário após adicionar, e botões de remover identificados pelo nome do item.
+
+### Organização
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `src/App.jsx` | Guarda o estado dos itens, conecta o formulário à lista e exibe os avisos |
+| `src/components/ItemForm.jsx` | Formulário de nome e descrição, com as mensagens de erro e os contadores |
+| `src/components/ItemList.jsx` | Lista dos itens, remoção e estado vazio |
+| `src/validation.js` | Regras de validação, em uma função pura sem dependência de React |
+
+Regras de validação:
+
+- o nome é obrigatório, tem entre 3 e 50 caracteres e não pode repetir o de um item já cadastrado, sem diferenciar maiúsculas e minúsculas;
+- a descrição é opcional e tem no máximo 200 caracteres;
+- espaços no início e no fim são desconsiderados.
+
+### Executando
+
+Pré-requisito: Node.js 24.
+
+```bash
+make frontend-install
+make frontend-dev
+```
+
+A aplicação fica disponível em `http://localhost:5173`.
+
+### Testes e qualidade
+
+| Tipo | Ferramentas | Pasta | O que testa |
+|---|---|---|---|
+| Unitário | Vitest + React Testing Library | `tests/unit` | Validação e componentes isolados, com eventos disparados por `fireEvent` |
+| Integração | Vitest + React Testing Library + user-event | `tests/integration` | Formulário e lista funcionando juntos no `App`, simulando a interação real do usuário |
+| End-to-end | Playwright | `tests/e2e` | A aplicação em um navegador real, a partir do build de produção |
+
+| Comando | Descrição |
+|---|---|
+| `make frontend-install` | Instala as dependências com `npm ci` |
+| `make frontend-dev` | Sobe o servidor de desenvolvimento do Vite |
+| `make frontend-lint` | Verifica o código com o linter do Biome (`biome lint`) |
+| `make frontend-format` | Formata o código com o Biome (`biome format --write`) |
+| `make frontend-check` | Verifica lint e formatação sem alterar arquivos |
+| `make frontend-test` | Executa os testes unitários e de integração com o Vitest |
+| `make frontend-test-e2e` | Executa os testes end-to-end com o Playwright |
+| `make frontend-build` | Gera o build de produção em `frontend/dist` |
+| `make check-all` | Verifica o projeto inteiro: backend (Ruff + Pytest) e frontend (Biome, Vitest, build, E2E) |
+
+Antes da primeira execução dos testes end-to-end, instale o navegador usado pelo Playwright:
+
+```bash
+cd frontend
+npx playwright install chromium
+```
+
+### Integração contínua
+
+O workflow [`.github/workflows/ci-frontend.yml`](.github/workflows/ci-frontend.yml) é executado a cada `push` e a cada `pull_request`, com dois jobs que rodam em paralelo:
+
+- **Lint do frontend** — verifica lint e formatação com o Biome.
+- **Testes do frontend** — executa os testes unitários e de integração, gera o build de produção e roda os testes end-to-end no Chromium. Se os testes end-to-end falharem, o relatório do Playwright fica anexado à execução.
 
 ## Autor
 

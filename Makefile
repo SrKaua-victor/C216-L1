@@ -1,8 +1,10 @@
 -include .env
 
 POETRY := poetry
+NPM := npm
 COMPOSE := docker compose
 BACKEND_DIR := backend
+FRONTEND_DIR := frontend
 BACKEND_SERVICE := backend
 DB_SERVICE := db
 DB_USER := $(or $(POSTGRES_USER),postgres)
@@ -17,7 +19,7 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install run test test-unit test-integration test-v test-k lint format lock clean build up down restart logs ps shell db-up db-shell migrate migration downgrade migrate-check
+.PHONY: help install run test test-unit test-integration test-v test-k lint format lock clean build up down restart logs ps shell db-up db-shell migrate migration downgrade migrate-check frontend-install frontend-dev frontend-lint frontend-format frontend-check frontend-test frontend-test-e2e frontend-build check-all
 
 help:
 	@echo "Comandos disponiveis:"
@@ -45,6 +47,20 @@ help:
 	@echo "  make migration         - gera uma migration a partir dos modelos (ex: make migration M=\"adiciona telefone\")"
 	@echo "  make downgrade         - desfaz a ultima migration"
 	@echo "  make migrate-check     - verifica se as migrations correspondem aos modelos"
+	@echo ""
+	@echo "Frontend:"
+	@echo "  make frontend-install   - instala as dependencias com npm ci"
+	@echo "  make frontend-dev       - sobe o servidor de desenvolvimento do Vite"
+	@echo "  make frontend-lint      - verifica o codigo com o linter do Biome"
+	@echo "  make frontend-format    - formata o codigo com o Biome"
+	@echo "  make frontend-check     - verifica lint e formatacao sem alterar arquivos"
+	@echo "  make frontend-test      - executa os testes unitarios e de integracao com o Vitest"
+	@echo "  make frontend-test-e2e  - executa os testes end-to-end com o Playwright"
+	@echo "  make frontend-build     - gera o build de producao"
+	@echo ""
+	@echo "Projeto inteiro:"
+	@echo "  make check-all          - backend (Ruff + Pytest) e frontend (Biome, Vitest, build, E2E)"
+	@echo ""
 	@echo "  make help              - mostra esta mensagem"
 
 install:
@@ -122,3 +138,30 @@ downgrade:
 
 migrate-check:
 	cd $(BACKEND_DIR) && $(POETRY) run alembic check
+
+frontend-install:
+	cd $(FRONTEND_DIR) && $(NPM) ci
+
+frontend-dev:
+	cd $(FRONTEND_DIR) && $(NPM) run dev
+
+frontend-lint:
+	cd $(FRONTEND_DIR) && $(NPM) run lint
+
+frontend-format:
+	cd $(FRONTEND_DIR) && $(NPM) run format
+
+frontend-check:
+	cd $(FRONTEND_DIR) && $(NPM) run check
+
+frontend-test:
+	cd $(FRONTEND_DIR) && $(NPM) test
+
+frontend-test-e2e:
+	cd $(FRONTEND_DIR) && $(NPM) run test:e2e
+
+frontend-build:
+	cd $(FRONTEND_DIR) && $(NPM) run build
+
+check-all: lint test frontend-check frontend-test frontend-build frontend-test-e2e
+	@echo "Backend e frontend verificados com sucesso."
