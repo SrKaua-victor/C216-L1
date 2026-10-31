@@ -18,6 +18,13 @@ build/
 .coverage
 htmlcov/
 
+# Node / frontend
+node_modules/
+playwright-report/
+test-results/
+blob-report/
+coverage/
+
 # Variáveis de ambiente
 .env
 .env.local
