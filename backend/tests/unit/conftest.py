@@ -1,6 +1,8 @@
 import pytest
 
+from app.models.item import Item
 from app.models.user import User
+from app.services.item import ItemService
 from app.services.user import UserService
 
 
@@ -40,3 +42,41 @@ def repository():
 @pytest.fixture
 def service(repository):
     return UserService(repository)
+
+
+class FakeItemRepository:
+    def __init__(self):
+        self.items: dict[int, Item] = {}
+        self._next_id = 1
+
+    def list(self) -> list[Item]:
+        return sorted(self.items.values(), key=lambda item: item.id)
+
+    def get(self, item_id: int) -> Item | None:
+        return self.items.get(item_id)
+
+    def get_by_nome(self, nome: str) -> Item | None:
+        return next(
+            (item for item in self.items.values() if item.nome.lower() == nome.lower()),
+            None,
+        )
+
+    def save(self, item: Item) -> Item:
+        if item.id is None:
+            item.id = self._next_id
+            self._next_id += 1
+        self.items[item.id] = item
+        return item
+
+    def delete(self, item: Item) -> None:
+        del self.items[item.id]
+
+
+@pytest.fixture
+def item_repository():
+    return FakeItemRepository()
+
+
+@pytest.fixture
+def item_service(item_repository):
+    return ItemService(item_repository)
