@@ -69,9 +69,15 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npx playwright install --with-deps chromium
 
-      - name: Executa os testes end-to-end
+      - name: Executa os testes end-to-end no stack lab-e2e
         if: ${{ !cancelled() && steps.browser.outcome == 'success' }}
-        run: npm run test:e2e
+        working-directory: .
+        run: make e2e
+
+      - name: Confirma que nenhum container do lab-e2e ficou ativo
+        if: ${{ always() }}
+        working-directory: .
+        run: test -z "$(docker ps -a -q --filter label=com.docker.compose.project=lab-e2e)"
 
       - name: Anexa o relatorio do Playwright
         if: ${{ failure() }}
