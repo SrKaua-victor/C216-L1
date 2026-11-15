@@ -100,17 +100,29 @@ jobs:
         run: poetry run pytest -m integration -v
 
   compose:
-    name: Aplicacao com PostgreSQL via Docker Compose
+    name: Aplicacao completa via Docker Compose
     runs-on: ubuntu-latest
 
     steps:
       - name: Faz o checkout do repositorio
         uses: actions/checkout@v4
 
-      - name: Sobe o backend e o banco
-        run: docker compose up -d --build --wait
+      - name: Sobe db, api e frontend
+        run: make up-build
 
-      - name: Cria e consulta um usuario no PostgreSQL
+      - name: Confere que os tres servicos estao saudaveis
+        run: |
+          docker compose ps
+          test "$(docker compose ps --format '{{.Service}}={{.Health}}' | sort | tr '\n' ' ')" \
+            = "api=healthy db=healthy frontend=healthy "
+
+      - name: Aplica as migrations e confere a versao atual
+        run: |
+          make db-upgrade
+          make db-current | tee versao.txt
+          grep -q "(head)" versao.txt
+
+      - name: Cria um usuario e um item no PostgreSQL
         run: |
           curl -fsS http://localhost:8000/health
           USER_ID=$(curl -fsS -X POST http://localhost:8000/users \
@@ -118,12 +130,31 @@ jobs:
             -d '{"nome": "Ana", "email": "ana@email.com"}' | jq -r .id)
           curl -fsS "http://localhost:8000/users/$USER_ID"
           echo "USER_ID=$USER_ID" >> "$GITHUB_ENV"
+          curl -fsS -X POST http://localhost:8000/items/ \
+            -H "Content-Type: application/json" \
+            -d '{"nome": "Caderno", "descricao": "Capa dura"}'
 
-      - name: Verifica a persistencia apos reiniciar o backend
+      - name: Verifica a persistencia apos reiniciar a api
         run: |
-          docker compose restart backend
+          docker compose restart api
           curl -fsS --retry 15 --retry-delay 2 --retry-all-errors "http://localhost:8000/users/$USER_ID" \
             | jq -e '.email == "ana@email.com"'
+          curl -fsS http://localhost:8000/items/ | jq -e 'map(.nome) == ["Caderno"]'
+
+      - name: Verifica o frontend servido pelo Nginx
+        run: curl -fsS http://localhost:5173 | grep -q "<title>C216 L1 - Cadastro de itens</title>"
+
+      - name: Verifica o CORS entre o frontend e a api
+        run: |
+          curl -fsS -o /dev/null -D cabecalhos.txt -X OPTIONS http://localhost:8000/items/ \
+            -H "Origin: http://localhost:5173" \
+            -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: content-type"
+          grep -qi "^access-control-allow-origin: http://localhost:5173" cabecalhos.txt
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X OPTIONS http://localhost:8000/items/ \
+            -H "Origin: http://site-desconhecido.example" \
+            -H "Access-Control-Request-Method: POST")
+          test "$STATUS" = "400"
 
       - name: Mostra os logs em caso de falha
         if: failure()
