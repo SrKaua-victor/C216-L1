@@ -1,0 +1,17 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+blob-report/
+coverage/
+
+.env
+.env.local
+
+Dockerfile
+.dockerignore
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
