@@ -1,15 +1,70 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ItemForm from "./components/ItemForm";
 import ItemList from "./components/ItemList";
+import { createItem, deleteItem, listItems } from "./services/items";
 
 const DURACAO_DO_AVISO_MS = 4000;
 
+function Carregando() {
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="sr-only">Carregando itens...</p>
+      {[1, 2, 3].map((linha) => (
+        <div
+          key={linha}
+          aria-hidden="true"
+          className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4"
+        >
+          <span className="size-10 shrink-0 rounded-full bg-slate-100 motion-safe:animate-pulse" />
+          <span className="h-4 w-1/3 rounded bg-slate-100 motion-safe:animate-pulse" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ErroAoCarregar({ mensagem, onTentarDeNovo }) {
+  return (
+    <div
+      role="alert"
+      className="flex flex-col items-center rounded-2xl border border-red-200 bg-red-50 px-6 py-10 text-center"
+    >
+      <p className="font-medium text-red-800">Não foi possível carregar os itens.</p>
+      <p className="mt-1 text-sm text-red-700">{mensagem}</p>
+      <button
+        type="button"
+        onClick={onTentarDeNovo}
+        className="mt-4 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-100"
+      >
+        Tentar novamente
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   const [itens, setItens] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erroAoCarregar, setErroAoCarregar] = useState("");
   const [aviso, setAviso] = useState(null);
-  const proximoId = useRef(1);
   const proximoAviso = useRef(1);
   const tituloDaLista = useRef(null);
+
+  const carregarItens = useCallback(async () => {
+    setCarregando(true);
+    setErroAoCarregar("");
+    try {
+      setItens(await listItems());
+    } catch (erro) {
+      setErroAoCarregar(erro.message);
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    carregarItens();
+  }, [carregarItens]);
 
   useEffect(() => {
     if (!aviso) {
@@ -19,23 +74,39 @@ export default function App() {
     return () => clearTimeout(temporizador);
   }, [aviso]);
 
-  function avisar(texto) {
-    setAviso({ id: proximoAviso.current, texto });
+  function avisar(texto, tipo = "sucesso") {
+    setAviso({ id: proximoAviso.current, texto, tipo });
     proximoAviso.current += 1;
   }
 
-  function adicionarItem(item) {
-    const novoItem = { id: proximoId.current, ...item };
-    proximoId.current += 1;
-    setItens((atuais) => [...atuais, novoItem]);
-    avisar(`“${novoItem.nome}” foi adicionado.`);
+  async function adicionarItem(item) {
+    const criado = await createItem(item);
+    setItens((atuais) => [...atuais, criado]);
+    avisar(`“${criado.nome}” foi adicionado.`);
   }
 
-  function removerItem(id) {
+  async function removerItem(id) {
     const removido = itens.find((item) => item.id === id);
+    try {
+      await deleteItem(id);
+    } catch (erro) {
+      if (erro.status !== 404) {
+        avisar(erro.message, "erro");
+        return;
+      }
+    }
     setItens((atuais) => atuais.filter((item) => item.id !== id));
     avisar(`“${removido.nome}” foi removido.`);
     tituloDaLista.current.focus();
+  }
+
+  let conteudoDaLista;
+  if (carregando) {
+    conteudoDaLista = <Carregando />;
+  } else if (erroAoCarregar) {
+    conteudoDaLista = <ErroAoCarregar mensagem={erroAoCarregar} onTentarDeNovo={carregarItens} />;
+  } else {
+    conteudoDaLista = <ItemList itens={itens} onRemover={removerItem} />;
   }
 
   return (
@@ -74,19 +145,28 @@ export default function App() {
           <ItemForm onAdicionar={adicionarItem} nomesExistentes={itens.map((item) => item.nome)} />
         </section>
 
-        <section aria-labelledby="titulo-lista" className="flex flex-col gap-4">
+        <section
+          aria-labelledby="titulo-lista"
+          aria-busy={carregando}
+          className="flex flex-col gap-4"
+        >
           <h2
             id="titulo-lista"
             ref={tituloDaLista}
             tabIndex={-1}
             className="flex items-center gap-2.5 text-lg font-semibold text-slate-900 focus:outline-none"
           >
-            Itens cadastrados{" "}
-            <span className="rounded-full bg-slate-200/70 px-2.5 py-0.5 text-sm font-medium tabular-nums text-slate-600">
-              {itens.length}
-            </span>
+            Itens cadastrados
+            {!carregando && !erroAoCarregar && (
+              <>
+                {" "}
+                <span className="rounded-full bg-slate-200/70 px-2.5 py-0.5 text-sm font-medium tabular-nums text-slate-600">
+                  {itens.length}
+                </span>
+              </>
+            )}
           </h2>
-          <ItemList itens={itens} onRemover={removerItem} />
+          {conteudoDaLista}
         </section>
       </main>
 
@@ -100,18 +180,33 @@ export default function App() {
             key={aviso.id}
             className="flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg motion-safe:animate-surgir"
           >
-            <svg
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden="true"
-              className="size-5 text-emerald-400"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z"
-                clipRule="evenodd"
-              />
-            </svg>
+            {aviso.tipo === "erro" ? (
+              <svg
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+                className="size-5 text-red-400"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            ) : (
+              <svg
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+                className="size-5 text-emerald-400"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            )}
             {aviso.texto}
           </p>
         )}
