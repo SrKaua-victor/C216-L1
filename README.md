@@ -30,27 +30,55 @@ O modelo ORM e o schema Pydantic são separados de propósito. O primeiro descre
 
 ### Variáveis de ambiente
 
-A configuração do banco vem de variáveis de ambiente. Copie os exemplos e ajuste se necessário:
+A configuração vem de variáveis de ambiente. Copie os exemplos e ajuste se necessário:
 
 ```bash
 cp .env.example .env
 cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
 | Arquivo | Usado por | Variáveis |
 |---|---|---|
-| `.env` | Docker Compose e Makefile | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` |
-| `backend/.env` | Aplicação e Alembic, quando rodam fora do Docker | `DATABASE_URL` |
+| `.env` | Docker Compose e Makefile | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `FRONTEND_PORT`, `VITE_API_URL`, `CORS_ORIGINS` |
+| `backend/.env` | Aplicação e Alembic, quando rodam fora do Docker | `DATABASE_URL`, `CORS_ORIGINS` |
+| `frontend/.env` | Vite, quando roda fora do Docker | `VITE_API_URL` |
 
 Os arquivos `.env` não são versionados.
+
+### CORS
+
+O frontend e o backend rodam em origens diferentes, então o backend só responde ao navegador para as origens listadas em `CORS_ORIGINS`, separadas por vírgula. As origens precisam ser explícitas: o curinga `*` é recusado na inicialização.
+
+```bash
+CORS_ORIGINS=http://localhost:5173
+```
+
+Sem a variável, são liberadas as origens locais do frontend: `5173`, usada tanto pelo container quanto pelo servidor de desenvolvimento do Vite, e `4173`, usada pelo `vite preview`.
 
 ### Executando com Docker Compose
 
 ```bash
-make up
+make up-build
+make ps
 ```
 
-Sobe o PostgreSQL e o backend. Ao iniciar, o container do backend aplica as migrations pendentes antes de subir a API. A documentação interativa fica em `http://localhost:8000/docs`.
+O `make up-build` constrói as imagens e sobe três serviços, definidos no `compose.yml`, esperando todos ficarem saudáveis. O `make ps` mostra o estado de cada um.
+
+| Serviço | Endereço | Descrição |
+|---|---|---|
+| `frontend` | `http://localhost:5173` | Build de produção do React servido pelo Nginx |
+| `api` | `http://localhost:8000` | API FastAPI, com documentação em `/docs` |
+| `db` | `localhost:5432` | PostgreSQL, com os dados em um volume persistente |
+
+Ao iniciar, o container da API aplica as migrations pendentes antes de subir. Para aplicar e conferir as migrations manualmente pelo container:
+
+```bash
+make db-upgrade
+make db-current
+```
+
+O frontend roda no navegador e chama a API pelo endereço publicado na máquina, definido em `VITE_API_URL` no momento do build da imagem.
 
 ### Executando localmente
 
@@ -127,16 +155,18 @@ O workflow [`.github/workflows/ci-backend.yml`](.github/workflows/ci-backend.yml
 
 - **Lint do backend** — verifica lint e formatação com o Ruff.
 - **Testes do backend** — sobe um PostgreSQL 16, aplica as migrations, verifica se elas correspondem aos modelos ORM e executa os testes unitários e os de integração em passos separados. Os testes de integração rodam contra esse PostgreSQL. O passo de integração roda mesmo se o unitário falhar, para que os dois resultados fiquem visíveis.
-- **Aplicação com PostgreSQL via Docker Compose** — sobe o projeto com `docker compose`, cria um usuário pela API, reinicia o backend e confirma que o dado continua no banco.
+- **Aplicação completa via Docker Compose** — sobe `db`, `api` e `frontend` com `make up-build`, confere que os três estão saudáveis, aplica as migrations com `make db-upgrade` e confere o `(head)` com `make db-current`. Depois cria um usuário e um item pela API, reinicia a API e confirma que os dados continuam no banco. Também verifica se o Nginx serve o frontend e se o CORS libera a origem do frontend e recusa as demais.
 
 O resultado aparece na aba **Actions** do repositório e como check nos Pull Requests.
 
 ## Frontend
 
-Aplicação em **React** criada com **Vite** e estilizada com **Tailwind CSS**. Permite cadastrar itens com nome e descrição, ver a lista dos itens cadastrados e remover itens. Nesta etapa os itens ficam no estado do componente `App`, sem comunicação com o backend.
+Aplicação em **React** criada com **Vite** e estilizada com **Tailwind CSS**. Permite cadastrar itens com nome e descrição, ver a lista dos itens cadastrados e remover itens. Os itens são guardados no PostgreSQL por meio da API do backend, nas rotas `GET /items`, `POST /items` e `DELETE /items/{id}`, e por isso continuam lá depois de recarregar a página.
 
 Recursos da interface:
 
+- estado de carregamento enquanto a API responde, e mensagem de erro com opção de tentar de novo quando ela falha;
+- erros devolvidos pela API exibidos no formulário, mantendo o que foi digitado;
 - layout responsivo, com formulário e lista lado a lado no desktop e empilhados no celular;
 - validação com mensagem junto ao campo, que some assim que o campo é corrigido;
 - contador de caracteres em cada campo, que destaca quando o limite é ultrapassado;
@@ -147,12 +177,15 @@ Recursos da interface:
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `src/App.jsx` | Guarda o estado dos itens, conecta o formulário à lista e exibe os avisos |
+| `src/services/items.js` | Chamadas à API com `fetch`: `listItems`, `createItem` e `deleteItem` |
+| `src/App.jsx` | Carrega os itens da API e controla os estados de carregamento, erro e os avisos |
 | `src/components/ItemForm.jsx` | Formulário de nome e descrição, com as mensagens de erro e os contadores |
 | `src/components/ItemList.jsx` | Lista dos itens, remoção e estado vazio |
 | `src/validation.js` | Regras de validação, em uma função pura sem dependência de React |
 
-Regras de validação:
+A URL da API vem de `VITE_API_URL`, que tem `http://localhost:8000` como padrão.
+
+Regras de validação, aplicadas no frontend e repetidas no backend:
 
 - o nome é obrigatório, tem entre 3 e 50 caracteres e não pode repetir o de um item já cadastrado, sem diferenciar maiúsculas e minúsculas;
 - a descrição é opcional e tem no máximo 200 caracteres;
@@ -160,9 +193,14 @@ Regras de validação:
 
 ### Executando
 
-Pré-requisito: Node.js 24.
+Para subir tudo junto, use `make up-build` e acesse `http://localhost:5173`.
+
+Para desenvolver o frontend com recarga automática, a API precisa estar no ar, e o container do frontend não pode estar rodando, porque os dois usam a porta `5173`. Pré-requisito: Node.js 24.
 
 ```bash
+make db-up
+make migrate
+make run
 make frontend-install
 make frontend-dev
 ```
@@ -173,9 +211,13 @@ A aplicação fica disponível em `http://localhost:5173`.
 
 | Tipo | Ferramentas | Pasta | O que testa |
 |---|---|---|---|
-| Unitário | Vitest + React Testing Library | `tests/unit` | Validação e componentes isolados, com eventos disparados por `fireEvent` |
-| Integração | Vitest + React Testing Library + user-event | `tests/integration` | Formulário e lista funcionando juntos no `App`, simulando a interação real do usuário |
-| End-to-end | Playwright | `tests/e2e` | A aplicação em um navegador real, a partir do build de produção |
+| Unitário | Vitest + React Testing Library | `tests/unit` | Validação, serviço de API e componentes isolados, com eventos disparados por `fireEvent` |
+| Integração | Vitest + React Testing Library + user-event | `tests/integration` | O `App` completo simulando a interação real do usuário, com uma API falsa |
+| End-to-end | Playwright | `tests/e2e` | A aplicação em um navegador real, com o backend e o banco de verdade |
+
+Nos testes do Vitest, o `fetch` é substituído por um mock, o que permite testar os estados de carregamento, sucesso e erro sem depender do backend.
+
+Os testes end-to-end rodam com `make e2e`, contra a aplicação completa em containers. O comando sobe um stack separado, o projeto Docker `lab-e2e`, com portas próprias (`15173`, `18000` e `15432`) para não conflitar com o stack de desenvolvimento. Depois roda o Playwright e, ao final, remove os containers, a rede e o volume desse stack, mesmo quando um teste falha. Os testes provam a persistência recarregando a página. Como compartilham o mesmo banco, eles rodam em sequência, e cada um começa limpando os itens pela API.
 
 | Comando | Descrição |
 |---|---|
@@ -185,7 +227,8 @@ A aplicação fica disponível em `http://localhost:5173`.
 | `make frontend-format` | Formata o código com o Biome (`biome format --write`) |
 | `make frontend-check` | Verifica lint e formatação sem alterar arquivos |
 | `make frontend-test` | Executa os testes unitários e de integração com o Vitest |
-| `make frontend-test-e2e` | Executa os testes end-to-end com o Playwright |
+| `make e2e` | Sobe o stack `lab-e2e`, executa os testes end-to-end com o Playwright e remove o stack |
+| `make frontend-test-e2e` | O mesmo que `make e2e` |
 | `make frontend-build` | Gera o build de produção em `frontend/dist` |
 | `make check-all` | Verifica o projeto inteiro: backend (Ruff + Pytest) e frontend (Biome, Vitest, build, E2E) |
 
@@ -201,7 +244,7 @@ npx playwright install chromium
 O workflow [`.github/workflows/ci-frontend.yml`](.github/workflows/ci-frontend.yml) é executado a cada `push` e a cada `pull_request`, com dois jobs que rodam em paralelo:
 
 - **Lint do frontend** — verifica lint e formatação com o Biome.
-- **Testes do frontend** — executa os testes unitários e de integração, gera o build de produção e roda os testes end-to-end no Chromium. Se os testes end-to-end falharem, o relatório do Playwright fica anexado à execução.
+- **Testes do frontend** — executa os testes unitários e de integração, gera o build de produção e roda os testes end-to-end com `make e2e`, contra a aplicação completa em containers, conferindo ao final que nenhum container `lab-e2e` ficou ativo. Se os testes end-to-end falharem, o relatório do Playwright fica anexado à execução.
 
 ## Autor
 
