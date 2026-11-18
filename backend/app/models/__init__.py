@@ -1,1 +1,3 @@
-__all__: list[str] = []
+from app.models.livro import Livro
+
+__all__ = ["Livro"]

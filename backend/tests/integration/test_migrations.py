@@ -3,6 +3,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+from sqlalchemy import create_engine, inspect
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
@@ -17,15 +18,26 @@ def _url_sqlite(tmp_path: Path) -> str:
     return f"sqlite+pysqlite:///{(tmp_path / 'migracao.db').as_posix()}"
 
 
+def _tabelas(url: str) -> set[str]:
+    engine = create_engine(url)
+    try:
+        return set(inspect(engine).get_table_names())
+    finally:
+        engine.dispose()
+
+
 def test_historico_de_migrations_tem_uma_unica_cabeca(tmp_path):
     scripts = ScriptDirectory.from_config(_config(_url_sqlite(tmp_path)))
-    assert len(scripts.get_heads()) <= 1
+    assert len(scripts.get_heads()) == 1
 
 
-def test_migrations_sobem_e_descem_sem_erro(tmp_path):
-    config = _config(_url_sqlite(tmp_path))
+def test_migrations_criam_e_removem_as_tabelas(tmp_path):
+    url = _url_sqlite(tmp_path)
+    config = _config(url)
     command.upgrade(config, "head")
+    assert "livros" in _tabelas(url)
     command.downgrade(config, "base")
+    assert "livros" not in _tabelas(url)
 
 
 def test_migrations_correspondem_aos_modelos_orm(tmp_path):
