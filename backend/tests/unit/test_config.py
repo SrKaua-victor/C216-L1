@@ -21,3 +21,14 @@ def test_rejeita_curinga(monkeypatch):
     monkeypatch.setenv("CORS_ORIGINS", "*")
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+def test_le_url_do_banco_da_variavel_de_ambiente(monkeypatch):
+    url = "postgresql+psycopg://usuario:senha@db:5432/outra"
+    monkeypatch.setenv("DATABASE_URL", url)
+    assert Settings(_env_file=None).database_url == url
+
+
+def test_url_padrao_aponta_para_o_postgres_local(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    assert Settings(_env_file=None).database_url.startswith("postgresql+psycopg://")

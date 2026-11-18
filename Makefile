@@ -1,7 +1,11 @@
 -include .env
 
 POETRY := poetry
+COMPOSE := docker compose
 BACKEND_DIR := backend
+DB_SERVICE := db
+DB_USER := $(or $(POSTGRES_USER),postgres)
+DB_NAME := $(or $(POSTGRES_DB),biblioteca)
 APP := app.main
 HOST := 0.0.0.0
 PORT := 8000
@@ -12,7 +16,7 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install run test test-unit test-integration test-v test-k lint format lock clean
+.PHONY: help install run test test-unit test-integration test-v test-k lint format lock clean db-up db-down db-shell migrate migration downgrade migrate-check db-current
 
 help:
 	@echo "Comandos disponiveis:"
@@ -27,6 +31,19 @@ help:
 	@echo "  make format            - formata o codigo e corrige o que o Ruff consegue sozinho"
 	@echo "  make lock              - atualiza o poetry.lock"
 	@echo "  make clean             - remove caches e arquivos temporarios"
+	@echo ""
+	@echo "Banco de dados:"
+	@echo "  make db-up             - sobe apenas o PostgreSQL com Docker Compose"
+	@echo "  make db-down           - para o PostgreSQL"
+	@echo "  make db-shell          - abre o psql no container do banco"
+	@echo ""
+	@echo "Migrations:"
+	@echo "  make migrate           - aplica as migrations pendentes"
+	@echo "  make migration         - gera uma migration a partir dos modelos (ex: make migration M=\"cria tabela livros\")"
+	@echo "  make downgrade         - desfaz a ultima migration"
+	@echo "  make migrate-check     - verifica se as migrations correspondem aos modelos"
+	@echo "  make db-current        - mostra a migration atual do banco"
+	@echo ""
 	@echo "  make help              - mostra esta mensagem"
 
 install:
@@ -65,3 +82,28 @@ clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type d -name ".pytest_cache" -exec rm -rf {} +
 	find . -type d -name ".ruff_cache" -exec rm -rf {} +
+
+db-up:
+	$(COMPOSE) up -d --wait $(DB_SERVICE)
+
+db-down:
+	$(COMPOSE) stop $(DB_SERVICE)
+
+db-shell:
+	$(COMPOSE) exec $(DB_SERVICE) psql -U $(DB_USER) -d $(DB_NAME)
+
+migrate:
+	cd $(BACKEND_DIR) && $(POETRY) run alembic upgrade head
+
+migration:
+	@test -n "$(M)" || (echo "Informe a descricao da migration: make migration M=\"descricao\"" && exit 1)
+	cd $(BACKEND_DIR) && $(POETRY) run alembic revision --autogenerate -m "$(M)"
+
+downgrade:
+	cd $(BACKEND_DIR) && $(POETRY) run alembic downgrade -1
+
+migrate-check:
+	cd $(BACKEND_DIR) && $(POETRY) run alembic check
+
+db-current:
+	cd $(BACKEND_DIR) && $(POETRY) run alembic current
