@@ -23,3 +23,11 @@ class Livro(Base):
     emprestimos: Mapped[list["Emprestimo"]] = relationship(
         back_populates="livro", cascade="all, delete-orphan", passive_deletes=True
     )
+
+    @property
+    def exemplares_emprestados(self) -> int:
+        return sum(1 for emprestimo in self.emprestimos if emprestimo.ativo)
+
+    @property
+    def exemplares_disponiveis(self) -> int:
+        return self.total_exemplares - self.exemplares_emprestados

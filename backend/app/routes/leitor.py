@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.repositories.leitor import LeitorRepository
 from app.schemas.leitor import LeitorCreate, LeitorResponse, LeitorUpdate
+from app.services.erros import RegraDeNegocioError
 from app.services.leitor import EmailDuplicadoError, LeitorNaoEncontradoError, LeitorService
 
 router = APIRouter(prefix="/leitores", tags=["leitores"])
@@ -74,3 +75,5 @@ def remover_leitor(
         service.remover(leitor_id)
     except LeitorNaoEncontradoError:
         raise _nao_encontrado() from None
+    except RegraDeNegocioError as erro:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(erro)) from None

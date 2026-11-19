@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models.leitor import Leitor
 from app.repositories.leitor import LeitorRepository
 from app.schemas.leitor import LeitorCreate, LeitorUpdate
+from app.services.erros import RegraDeNegocioError
 
 
 class LeitorNaoEncontradoError(Exception):
@@ -39,7 +40,10 @@ class LeitorService:
         return self._salvar(leitor)
 
     def remover(self, leitor_id: int) -> None:
-        self.repository.delete(self.obter(leitor_id))
+        leitor = self.obter(leitor_id)
+        if leitor.emprestimos_ativos:
+            raise RegraDeNegocioError("Não é possível remover um leitor com empréstimos ativos.")
+        self.repository.delete(leitor)
 
     def _garantir_email_livre(self, email: str, ignorar_id: int | None = None) -> None:
         existente = self.repository.get_by_email(email)

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.repositories.livro import LivroRepository
 from app.schemas.livro import LivroCreate, LivroResponse, LivroUpdate
+from app.services.erros import RegraDeNegocioError
 from app.services.livro import IsbnDuplicadoError, LivroNaoEncontradoError, LivroService
 
 router = APIRouter(prefix="/livros", tags=["livros"])
@@ -63,6 +64,8 @@ def atualizar_livro(
         raise _nao_encontrado() from None
     except IsbnDuplicadoError:
         raise _isbn_duplicado() from None
+    except RegraDeNegocioError as erro:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(erro)) from None
 
 
 @router.delete("/{livro_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -74,3 +77,5 @@ def remover_livro(
         service.remover(livro_id)
     except LivroNaoEncontradoError:
         raise _nao_encontrado() from None
+    except RegraDeNegocioError as erro:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(erro)) from None

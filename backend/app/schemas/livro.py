@@ -66,3 +66,4 @@ class LivroResponse(BaseModel):
     isbn: str
     ano_publicacao: int
     total_exemplares: int
+    exemplares_disponiveis: int

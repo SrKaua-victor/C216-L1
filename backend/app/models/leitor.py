@@ -20,3 +20,7 @@ class Leitor(Base):
     emprestimos: Mapped[list["Emprestimo"]] = relationship(
         back_populates="leitor", cascade="all, delete-orphan", passive_deletes=True
     )
+
+    @property
+    def emprestimos_ativos(self) -> list["Emprestimo"]:
+        return [emprestimo for emprestimo in self.emprestimos if emprestimo.ativo]

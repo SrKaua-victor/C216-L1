@@ -1,0 +1,2 @@
+class RegraDeNegocioError(Exception):
+    pass

@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, Date, ForeignKey, Integer, Numeric
@@ -10,6 +11,12 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from app.models.leitor import Leitor
     from app.models.livro import Livro
+
+
+class SituacaoEmprestimo(StrEnum):
+    ATIVOS = "ativos"
+    ATRASADOS = "atrasados"
+    DEVOLVIDOS = "devolvidos"
 
 
 class Emprestimo(Base):
@@ -37,3 +44,10 @@ class Emprestimo(Base):
 
     livro: Mapped["Livro"] = relationship(back_populates="emprestimos")
     leitor: Mapped["Leitor"] = relationship(back_populates="emprestimos")
+
+    @property
+    def ativo(self) -> bool:
+        return self.data_devolucao is None
+
+    def atrasado_em(self, hoje: date) -> bool:
+        return self.ativo and hoje > self.data_prevista_devolucao

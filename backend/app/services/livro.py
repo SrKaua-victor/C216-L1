@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models.livro import Livro
 from app.repositories.livro import LivroRepository
 from app.schemas.livro import LivroCreate, LivroUpdate
+from app.services.erros import RegraDeNegocioError
 
 
 class LivroNaoEncontradoError(Exception):
@@ -40,6 +41,11 @@ class LivroService:
         outro = self.repository.get_by_isbn(dados.isbn)
         if outro is not None and outro.id != livro.id:
             raise IsbnDuplicadoError(dados.isbn)
+        if dados.total_exemplares < livro.exemplares_emprestados:
+            raise RegraDeNegocioError(
+                "O total de exemplares não pode ser menor que a quantidade emprestada "
+                f"({livro.exemplares_emprestados})."
+            )
         for campo, valor in dados.model_dump().items():
             setattr(livro, campo, valor)
         try:
@@ -48,4 +54,7 @@ class LivroService:
             raise IsbnDuplicadoError(dados.isbn) from erro
 
     def remover(self, livro_id: int) -> None:
-        self.repository.delete(self.obter(livro_id))
+        livro = self.obter(livro_id)
+        if livro.exemplares_emprestados > 0:
+            raise RegraDeNegocioError("Não é possível remover um livro com empréstimos ativos.")
+        self.repository.delete(livro)

@@ -1,6 +1,6 @@
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.livro import Livro
 
@@ -10,7 +10,11 @@ class LivroRepository:
         self.session = session
 
     def list(self, busca: str | None = None) -> list[Livro]:
-        consulta = select(Livro).order_by(func.lower(Livro.titulo), Livro.id)
+        consulta = (
+            select(Livro)
+            .options(selectinload(Livro.emprestimos))
+            .order_by(func.lower(Livro.titulo), Livro.id)
+        )
         if busca:
             termo = f"%{busca.lower()}%"
             consulta = consulta.where(
