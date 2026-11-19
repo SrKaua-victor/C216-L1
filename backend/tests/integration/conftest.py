@@ -2,7 +2,7 @@ import os
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -13,6 +13,12 @@ from app.main import app
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite+pysqlite:///:memory:")
 
 
+def _ativar_chaves_estrangeiras(conexao, _registro):
+    cursor = conexao.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 @pytest.fixture(scope="session")
 def engine():
     if TEST_DATABASE_URL.startswith("sqlite"):
@@ -21,6 +27,7 @@ def engine():
             connect_args={"check_same_thread": False},
             poolclass=StaticPool,
         )
+        event.listen(engine, "connect", _ativar_chaves_estrangeiras)
     else:
         engine = create_engine(TEST_DATABASE_URL)
     Base.metadata.create_all(engine)

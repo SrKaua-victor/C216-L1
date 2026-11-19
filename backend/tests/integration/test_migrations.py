@@ -35,9 +35,9 @@ def test_migrations_criam_e_removem_as_tabelas(tmp_path):
     url = _url_sqlite(tmp_path)
     config = _config(url)
     command.upgrade(config, "head")
-    assert {"livros", "leitores"} <= _tabelas(url)
+    assert {"livros", "leitores", "emprestimos"} <= _tabelas(url)
     command.downgrade(config, "base")
-    assert not {"livros", "leitores"} & _tabelas(url)
+    assert not {"livros", "leitores", "emprestimos"} & _tabelas(url)
 
 
 def test_migrations_correspondem_aos_modelos_orm(tmp_path):

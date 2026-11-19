@@ -1,7 +1,12 @@
+from typing import TYPE_CHECKING
+
 from sqlalchemy import CheckConstraint, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.emprestimo import Emprestimo
 
 
 class Livro(Base):
@@ -14,3 +19,7 @@ class Livro(Base):
     isbn: Mapped[str] = mapped_column(String(13), unique=True)
     ano_publicacao: Mapped[int] = mapped_column(Integer)
     total_exemplares: Mapped[int] = mapped_column(Integer, default=1)
+
+    emprestimos: Mapped[list["Emprestimo"]] = relationship(
+        back_populates="livro", cascade="all, delete-orphan", passive_deletes=True
+    )
