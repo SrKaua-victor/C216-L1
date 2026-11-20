@@ -3,6 +3,7 @@
 POETRY := poetry
 COMPOSE := docker compose
 BACKEND_DIR := backend
+API_SERVICE := api
 DB_SERVICE := db
 DB_USER := $(or $(POSTGRES_USER),postgres)
 DB_NAME := $(or $(POSTGRES_DB),biblioteca)
@@ -16,7 +17,7 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install run test test-unit test-integration test-v test-k lint format lock clean db-up db-down db-shell migrate migration downgrade migrate-check db-current
+.PHONY: help install run test test-unit test-integration test-v test-k lint format lock clean build up up-build down restart logs ps shell db-up db-down db-shell migrate migration downgrade migrate-check db-current
 
 help:
 	@echo "Comandos disponiveis:"
@@ -31,6 +32,16 @@ help:
 	@echo "  make format            - formata o codigo e corrige o que o Ruff consegue sozinho"
 	@echo "  make lock              - atualiza o poetry.lock"
 	@echo "  make clean             - remove caches e arquivos temporarios"
+	@echo ""
+	@echo "Docker Compose:"
+	@echo "  make build             - constroi as imagens docker"
+	@echo "  make up                - sobe os containers em segundo plano"
+	@echo "  make up-build          - constroi as imagens e sobe tudo, esperando ficar saudavel"
+	@echo "  make down              - para e remove os containers"
+	@echo "  make restart           - reinicia os containers"
+	@echo "  make logs              - acompanha os logs da api"
+	@echo "  make ps                - lista os containers e o estado de saude"
+	@echo "  make shell             - abre um shell no container da api"
 	@echo ""
 	@echo "Banco de dados:"
 	@echo "  make db-up             - sobe apenas o PostgreSQL com Docker Compose"
@@ -82,6 +93,30 @@ clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type d -name ".pytest_cache" -exec rm -rf {} +
 	find . -type d -name ".ruff_cache" -exec rm -rf {} +
+
+build:
+	$(COMPOSE) build
+
+up:
+	$(COMPOSE) up -d
+
+up-build:
+	$(COMPOSE) up -d --build --wait
+
+down:
+	$(COMPOSE) down
+
+restart:
+	$(COMPOSE) restart
+
+logs:
+	$(COMPOSE) logs -f $(API_SERVICE)
+
+ps:
+	$(COMPOSE) ps
+
+shell:
+	$(COMPOSE) exec $(API_SERVICE) sh
 
 db-up:
 	$(COMPOSE) up -d --wait $(DB_SERVICE)
