@@ -1,0 +1,165 @@
+name: CI Backend
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint do backend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Faz o checkout do repositorio
+        uses: actions/checkout@v4
+
+      - name: Instala o Poetry
+        run: pipx install poetry==2.4.1
+
+      - name: Configura o Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: poetry
+          cache-dependency-path: backend/poetry.lock
+
+      - name: Instala as dependencias
+        id: install
+        run: poetry install --no-root
+
+      - name: Verifica o lint
+        run: poetry run ruff check .
+
+      - name: Verifica a formatacao
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: poetry run ruff format --check .
+
+  test:
+    name: Testes do backend
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: biblioteca_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d biblioteca_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/biblioteca_test
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/biblioteca_test
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Faz o checkout do repositorio
+        uses: actions/checkout@v4
+
+      - name: Instala o Poetry
+        run: pipx install poetry==2.4.1
+
+      - name: Configura o Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: poetry
+          cache-dependency-path: backend/poetry.lock
+
+      - name: Verifica o pyproject.toml
+        run: poetry check
+
+      - name: Instala as dependencias
+        id: install
+        run: poetry install --no-root
+
+      - name: Aplica as migrations no PostgreSQL
+        run: poetry run alembic upgrade head
+
+      - name: Verifica se as migrations correspondem aos modelos
+        run: poetry run alembic check
+
+      - name: Executa os testes unitarios
+        run: poetry run pytest -m unit -v
+
+      - name: Executa os testes de integracao
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: poetry run pytest -m integration -v
+
+  compose:
+    name: API completa via Docker Compose
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Faz o checkout do repositorio
+        uses: actions/checkout@v4
+
+      - name: Sobe db e api
+        run: make up-build
+
+      - name: Confere que os servicos estao saudaveis
+        run: |
+          docker compose ps
+          test "$(docker compose ps --format '{{.Service}}={{.Health}}' | sort | tr '\n' ' ')" \
+            = "api=healthy db=healthy "
+
+      - name: Confere que as migrations foram aplicadas
+        run: |
+          docker compose exec -T api alembic current | tee versao.txt
+          grep -q "(head)" versao.txt
+
+      - name: Registra um emprestimo no PostgreSQL
+        run: |
+          curl -fsS http://localhost:8000/health
+          LIVRO_ID=$(curl -fsS -X POST http://localhost:8000/livros \
+            -H "Content-Type: application/json" \
+            -d '{"titulo": "Dom Casmurro", "autor": "Machado de Assis", "isbn": "9788535910667", "ano_publicacao": 1899}' \
+            | jq -r .id)
+          LEITOR_ID=$(curl -fsS -X POST http://localhost:8000/leitores \
+            -H "Content-Type: application/json" \
+            -d '{"nome": "Ana Souza", "email": "ana@email.com"}' | jq -r .id)
+          curl -fsS -X POST http://localhost:8000/emprestimos \
+            -H "Content-Type: application/json" \
+            -d "{\"livro_id\": $LIVRO_ID, \"leitor_id\": $LEITOR_ID}"
+          echo "LIVRO_ID=$LIVRO_ID" >> "$GITHUB_ENV"
+
+      - name: Verifica a persistencia apos reiniciar a api
+        run: |
+          docker compose restart api
+          curl -fsS --retry 15 --retry-delay 2 --retry-all-errors "http://localhost:8000/livros/$LIVRO_ID" \
+            | jq -e '.exemplares_disponiveis == 0'
+          curl -fsS "http://localhost:8000/emprestimos?situacao=ativos" \
+            | jq -e 'map(.leitor.nome) == ["Ana Souza"]'
+
+      - name: Verifica o CORS
+        run: |
+          curl -fsS -o /dev/null -D cabecalhos.txt -X OPTIONS http://localhost:8000/livros \
+            -H "Origin: http://localhost:5173" \
+            -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: content-type"
+          grep -qi "^access-control-allow-origin: http://localhost:5173" cabecalhos.txt
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X OPTIONS http://localhost:8000/livros \
+            -H "Origin: http://site-desconhecido.example" \
+            -H "Access-Control-Request-Method: POST")
+          test "$STATUS" = "400"
+
+      - name: Mostra os logs em caso de falha
+        if: failure()
+        run: docker compose logs
+
+      - name: Derruba os containers
+        if: always()
+        run: docker compose down -v
