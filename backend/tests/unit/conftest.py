@@ -1,9 +1,14 @@
+from datetime import date
+
 import pytest
 
 from app.models.leitor import Leitor
 from app.models.livro import Livro
+from app.services.emprestimo import EmprestimoService
 from app.services.leitor import LeitorService
 from app.services.livro import LivroService
+
+HOJE = date(2026, 11, 2)
 
 
 class FakeRepository:
@@ -73,3 +78,8 @@ def leitor_repository():
 @pytest.fixture
 def leitor_service(leitor_repository):
     return LeitorService(leitor_repository)
+
+
+@pytest.fixture
+def emprestimo_service(livro_repository, leitor_repository):
+    return EmprestimoService(FakeRepository(), livro_repository, leitor_repository, HOJE)
