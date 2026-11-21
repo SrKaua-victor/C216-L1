@@ -1,8 +1,10 @@
 -include .env
 
 POETRY := poetry
+NPM := npm
 COMPOSE := docker compose
 BACKEND_DIR := backend
+FRONTEND_DIR := frontend
 API_SERVICE := api
 DB_SERVICE := db
 DB_USER := $(or $(POSTGRES_USER),postgres)
@@ -17,7 +19,7 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install run test test-unit test-integration test-v test-k lint format lock clean build up up-build down restart logs ps shell db-up db-down db-shell migrate migration downgrade migrate-check db-current
+.PHONY: help install run test test-unit test-integration test-v test-k lint format lock clean build up up-build down restart logs ps shell db-up db-down db-shell migrate migration downgrade migrate-check db-current frontend-install frontend-dev frontend-lint frontend-format frontend-check frontend-test frontend-build
 
 help:
 	@echo "Comandos disponiveis:"
@@ -54,6 +56,15 @@ help:
 	@echo "  make downgrade         - desfaz a ultima migration"
 	@echo "  make migrate-check     - verifica se as migrations correspondem aos modelos"
 	@echo "  make db-current        - mostra a migration atual do banco"
+	@echo ""
+	@echo "Frontend:"
+	@echo "  make frontend-install  - instala as dependencias com npm ci"
+	@echo "  make frontend-dev      - sobe o servidor de desenvolvimento do Vite"
+	@echo "  make frontend-lint     - verifica o codigo com o linter do Biome"
+	@echo "  make frontend-format   - formata o codigo com o Biome"
+	@echo "  make frontend-check    - verifica lint e formatacao sem alterar arquivos"
+	@echo "  make frontend-test     - executa os testes com o Vitest"
+	@echo "  make frontend-build    - gera o build de producao"
 	@echo ""
 	@echo "  make help              - mostra esta mensagem"
 
@@ -142,3 +153,24 @@ migrate-check:
 
 db-current:
 	cd $(BACKEND_DIR) && $(POETRY) run alembic current
+
+frontend-install:
+	cd $(FRONTEND_DIR) && $(NPM) ci
+
+frontend-dev:
+	cd $(FRONTEND_DIR) && $(NPM) run dev
+
+frontend-lint:
+	cd $(FRONTEND_DIR) && $(NPM) run lint
+
+frontend-format:
+	cd $(FRONTEND_DIR) && $(NPM) run format
+
+frontend-check:
+	cd $(FRONTEND_DIR) && $(NPM) run check
+
+frontend-test:
+	cd $(FRONTEND_DIR) && $(NPM) test
+
+frontend-build:
+	cd $(FRONTEND_DIR) && $(NPM) run build
