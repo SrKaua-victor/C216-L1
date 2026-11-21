@@ -1,8 +1,14 @@
 export const ANO_MINIMO = 1450;
 export const EXEMPLARES_MAXIMO = 1000;
 
+const PADRAO_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
 function normalizarIsbn(isbn) {
   return isbn.replace(/[-\s]/g, "").toUpperCase();
+}
+
+function somenteDigitos(valor) {
+  return valor.replace(/\D/g, "");
 }
 
 function inteiro(valor) {
@@ -49,5 +55,34 @@ export function normalizarLivro({ titulo, autor, isbn, ano_publicacao, total_exe
     isbn: normalizarIsbn(isbn),
     ano_publicacao: Number(ano_publicacao),
     total_exemplares: Number(total_exemplares),
+  };
+}
+
+export function validarLeitor({ nome, email, telefone }) {
+  const erros = {};
+
+  if (nome.trim().length < 3) {
+    erros.nome = "Informe o nome com pelo menos 3 caracteres.";
+  } else if (nome.trim().length > 100) {
+    erros.nome = "O nome deve ter no máximo 100 caracteres.";
+  }
+
+  if (!PADRAO_EMAIL.test(email.trim()) || email.trim().length > 255) {
+    erros.email = "Informe um e-mail válido.";
+  }
+
+  const digitos = somenteDigitos(telefone);
+  if (telefone.trim() && ![10, 11].includes(digitos.length)) {
+    erros.telefone = "Informe o telefone com DDD, com 10 ou 11 dígitos.";
+  }
+
+  return erros;
+}
+
+export function normalizarLeitor({ nome, email, telefone }) {
+  return {
+    nome: nome.trim(),
+    email: email.trim().toLowerCase(),
+    telefone: somenteDigitos(telefone) || null,
   };
 }

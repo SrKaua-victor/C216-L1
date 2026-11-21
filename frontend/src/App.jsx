@@ -1,9 +1,10 @@
 import { useState } from "react";
+import LeitoresPagina from "./pages/LeitoresPagina";
 import LivrosPagina from "./pages/LivrosPagina";
 
 const ABAS = [
   { id: "livros", titulo: "Livros", Pagina: LivrosPagina },
-  { id: "leitores", titulo: "Leitores" },
+  { id: "leitores", titulo: "Leitores", Pagina: LeitoresPagina },
   { id: "emprestimos", titulo: "Empréstimos" },
 ];
 
