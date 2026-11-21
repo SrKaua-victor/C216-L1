@@ -1,10 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../../src/App";
 
 describe("App", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("alterna entre as seções pela navegação", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("[]", { status: 200 })));
     render(<App />);
     expect(screen.getByRole("heading", { level: 2, name: "Livros" })).toBeInTheDocument();
 
