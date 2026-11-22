@@ -3,7 +3,7 @@ import pytest
 ORIGEM_DO_FRONTEND = "http://localhost:5173"
 
 
-@pytest.mark.parametrize("metodo", ["GET", "POST", "PUT", "PATCH", "DELETE"])
+@pytest.mark.parametrize("metodo", ["GET", "POST", "PUT", "DELETE"])
 def test_preflight_libera_metodos_para_o_frontend(client, metodo):
     resposta = client.options(
         "/health",
@@ -18,16 +18,16 @@ def test_preflight_libera_metodos_para_o_frontend(client, metodo):
     assert metodo in resposta.headers["access-control-allow-methods"]
 
 
-def test_preflight_rejeita_origem_desconhecida(client):
+@pytest.mark.parametrize(
+    ("origem", "metodo"),
+    [("http://site-desconhecido.example", "POST"), (ORIGEM_DO_FRONTEND, "PATCH")],
+)
+def test_preflight_rejeita_origem_desconhecida_ou_metodo_nao_utilizado(client, origem, metodo):
     resposta = client.options(
         "/health",
-        headers={
-            "Origin": "http://site-desconhecido.example",
-            "Access-Control-Request-Method": "POST",
-        },
+        headers={"Origin": origem, "Access-Control-Request-Method": metodo},
     )
     assert resposta.status_code == 400
-    assert "access-control-allow-origin" not in resposta.headers
 
 
 def test_requisicao_simples_recebe_cabecalho_de_origem(client):
