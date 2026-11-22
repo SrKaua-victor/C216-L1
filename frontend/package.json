@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test",
     "lint": "biome lint --error-on-warnings .",
     "format": "biome format --write .",
     "check": "biome check --error-on-warnings ."
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.4",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",

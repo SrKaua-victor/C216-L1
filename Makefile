@@ -13,13 +13,21 @@ APP := app.main
 HOST := 0.0.0.0
 PORT := 8000
 
+E2E_PROJECT := biblioteca-e2e
+E2E_FRONTEND_PORT := 15173
+E2E_API_PORT := 18000
+E2E_DB_PORT := 15432
+E2E_FRONTEND_URL := http://localhost:$(E2E_FRONTEND_PORT)
+E2E_API_URL := http://localhost:$(E2E_API_PORT)
+E2E_COMPOSE := POSTGRES_PORT=$(E2E_DB_PORT) API_PORT=$(E2E_API_PORT) FRONTEND_PORT=$(E2E_FRONTEND_PORT) VITE_API_URL=$(E2E_API_URL) CORS_ORIGINS=$(E2E_FRONTEND_URL) $(COMPOSE) -p $(E2E_PROJECT)
+
 ifeq ($(OS),Windows_NT)
 SHELL := C:/Program Files/Git/bin/sh.exe
 endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install run test test-unit test-integration test-v test-k lint format lock clean build up up-build down restart logs ps shell db-up db-down db-shell migrate migration downgrade migrate-check db-current frontend-install frontend-dev frontend-lint frontend-format frontend-check frontend-test frontend-build
+.PHONY: help install run test test-unit test-integration test-v test-k lint format lock clean build up up-build down restart logs ps shell db-up db-down db-shell migrate migration downgrade migrate-check db-current frontend-install frontend-dev frontend-lint frontend-format frontend-check frontend-test frontend-build e2e
 
 help:
 	@echo "Comandos disponiveis:"
@@ -65,6 +73,7 @@ help:
 	@echo "  make frontend-check    - verifica lint e formatacao sem alterar arquivos"
 	@echo "  make frontend-test     - executa os testes com o Vitest"
 	@echo "  make frontend-build    - gera o build de producao"
+	@echo "  make e2e               - sobe o stack $(E2E_PROJECT), roda o Playwright e remove o stack ao final"
 	@echo ""
 	@echo "  make help              - mostra esta mensagem"
 
@@ -174,3 +183,8 @@ frontend-test:
 
 frontend-build:
 	cd $(FRONTEND_DIR) && $(NPM) run build
+
+e2e:
+	trap 'status=$$?; if [ $$status -ne 0 ]; then $(E2E_COMPOSE) logs --tail 50; fi; $(E2E_COMPOSE) down -v --remove-orphans' EXIT; \
+	$(E2E_COMPOSE) up -d --build --wait && \
+	(cd $(FRONTEND_DIR) && E2E_BASE_URL=$(E2E_FRONTEND_URL) E2E_API_URL=$(E2E_API_URL) $(NPM) run test:e2e)
