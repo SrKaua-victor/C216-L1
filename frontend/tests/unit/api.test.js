@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { API_URL, ApiError, requisitar } from "../../src/services/api";
 
 function responder(status, corpo) {
@@ -16,10 +16,6 @@ async function capturarErro(promessa) {
 }
 
 describe("requisitar", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it("usa http://localhost:8000 quando VITE_API_URL não está definida", () => {
     expect(API_URL).toBe("http://localhost:8000");
   });

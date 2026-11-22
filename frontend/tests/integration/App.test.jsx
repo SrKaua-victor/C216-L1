@@ -1,13 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import App from "../../src/App";
 
 describe("App", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it("alterna entre as seções pela navegação", async () => {
     vi.stubGlobal(
       "fetch",

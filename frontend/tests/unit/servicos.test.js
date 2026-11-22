@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   criarEmprestimo,
   devolverEmprestimo,
@@ -12,10 +12,6 @@ const URL = "http://localhost:8000";
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
 describe("serviços da API", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it.each([
     ["listarLivros sem busca", () => listarLivros(), "/livros", {}],
     [
