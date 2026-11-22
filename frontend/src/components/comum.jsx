@@ -36,6 +36,35 @@ export function Campo({ id, rotulo, erro, ...props }) {
   );
 }
 
+export function Selecao({ id, rotulo, erro, opcoes, textoVazio, ...props }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-sm font-medium">
+        {rotulo}
+      </label>
+      <select
+        id={id}
+        aria-invalid={Boolean(erro)}
+        aria-describedby={erro ? `${id}-erro` : undefined}
+        className={`${ESTILO_ENTRADA} aria-invalid:border-red-500`}
+        {...props}
+      >
+        {textoVazio !== undefined && <option value="">{textoVazio}</option>}
+        {opcoes.map((opcao) => (
+          <option key={opcao.valor} value={opcao.valor} disabled={opcao.desabilitada}>
+            {opcao.texto}
+          </option>
+        ))}
+      </select>
+      {erro && (
+        <p id={`${id}-erro`} className="text-sm text-red-600">
+          {erro}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function Mensagem({ mensagem }) {
   if (!mensagem) {
     return null;
@@ -95,7 +124,7 @@ export function Busca({ rotulo, placeholder, onBuscar }) {
 }
 
 export function EstadoDaLista({ carregando, erro, vazia, textoVazio, onTentarDeNovo, children }) {
-  if (carregando) {
+  if (carregando && vazia) {
     return <p className="text-sm text-slate-600">Carregando...</p>;
   }
   if (erro) {

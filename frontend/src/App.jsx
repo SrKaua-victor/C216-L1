@@ -1,11 +1,12 @@
 import { useState } from "react";
+import EmprestimosPagina from "./pages/EmprestimosPagina";
 import LeitoresPagina from "./pages/LeitoresPagina";
 import LivrosPagina from "./pages/LivrosPagina";
 
 const ABAS = [
   { id: "livros", titulo: "Livros", Pagina: LivrosPagina },
   { id: "leitores", titulo: "Leitores", Pagina: LeitoresPagina },
-  { id: "emprestimos", titulo: "Empréstimos" },
+  { id: "emprestimos", titulo: "Empréstimos", Pagina: EmprestimosPagina },
 ];
 
 export default function App() {
@@ -37,7 +38,7 @@ export default function App() {
       </header>
 
       <main>
-        {aba.Pagina ? <aba.Pagina /> : <h2 className="text-xl font-semibold">{aba.titulo}</h2>}
+        <aba.Pagina />
       </main>
     </div>
   );

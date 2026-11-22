@@ -9,7 +9,10 @@ describe("App", () => {
   });
 
   it("alterna entre as seções pela navegação", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("[]", { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("[]", { status: 200 })),
+    );
     render(<App />);
     expect(screen.getByRole("heading", { level: 2, name: "Livros" })).toBeInTheDocument();
 
