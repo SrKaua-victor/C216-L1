@@ -38,7 +38,7 @@ help:
 	@echo "Docker Compose:"
 	@echo "  make build             - constroi as imagens docker"
 	@echo "  make up                - sobe os containers em segundo plano"
-	@echo "  make up-build          - constroi as imagens e sobe tudo, esperando ficar saudavel"
+	@echo "  make up-build          - constroi as imagens e sobe db, api e frontend, esperando ficarem saudaveis"
 	@echo "  make down              - para e remove os containers"
 	@echo "  make restart           - reinicia os containers"
 	@echo "  make logs              - acompanha os logs da api"

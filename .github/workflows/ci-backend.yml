@@ -100,26 +100,29 @@ jobs:
         run: poetry run pytest -m integration -v
 
   compose:
-    name: API completa via Docker Compose
+    name: Aplicacao completa via Docker Compose
     runs-on: ubuntu-latest
 
     steps:
       - name: Faz o checkout do repositorio
         uses: actions/checkout@v4
 
-      - name: Sobe db e api
+      - name: Sobe db, api e frontend
         run: make up-build
 
       - name: Confere que os servicos estao saudaveis
         run: |
           docker compose ps
           test "$(docker compose ps --format '{{.Service}}={{.Health}}' | sort | tr '\n' ' ')" \
-            = "api=healthy db=healthy "
+            = "api=healthy db=healthy frontend=healthy "
 
       - name: Confere que as migrations foram aplicadas
         run: |
           docker compose exec -T api alembic current | tee versao.txt
           grep -q "(head)" versao.txt
+
+      - name: Confere que o frontend e servido pelo nginx
+        run: curl -fsS http://localhost:5173 | grep -q "<title>Biblioteca</title>"
 
       - name: Registra um emprestimo no PostgreSQL
         run: |
