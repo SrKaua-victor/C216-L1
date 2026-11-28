@@ -4,7 +4,7 @@ Projeto final da disciplina **C216 L1 - Sistemas Distribuídos**.
 
 Aplicação web para uma biblioteca controlar seu acervo, seus leitores e os empréstimos de livros. O backend é uma API REST em FastAPI com PostgreSQL, o frontend é uma aplicação React, e os três serviços sobem juntos com Docker Compose.
 
-**Vídeo de apresentação:** [ainda não gravei]
+**Vídeo de apresentação:** https://youtu.be/WO4fHPyLC-o
 
 ## Funcionalidades
 
